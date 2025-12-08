@@ -50,6 +50,13 @@ func (dei DailyEatingInfo) String() string {
 
 var usersDishesInfo = map[int64]map[string]DailyEatingInfo{}
 
+// todo:
+// 1. sqlite to store users info
+// 2. parse optional parameters (fat/protein/etc)
+// 3. parse values as floats
+// 4. move bot logic into separate function
+// 5. deploy somewhere (optional)
+// 6. readable readme
 func main() {
 	pref := tele.Settings{
 		Token:  os.Getenv("TOKEN_CALORINA"),
