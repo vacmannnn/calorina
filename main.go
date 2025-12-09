@@ -19,13 +19,14 @@ import (
 )
 
 // todo:
-// 3. parse values as floats
 // 4. move bot logic into separate function
 // 5. deploy somewhere (optional)
 // 6. readable readme
 // 7. global refactoring
 // 8. option to get daily info
 // 9. multi-words dishes names
+// 10. remove dishes
+// 11. check specific day
 func main() {
 	pref := tele.Settings{
 		Token:  os.Getenv("TOKEN_CALORINA"),
@@ -74,25 +75,32 @@ func main() {
 		day, err := repos.GetDailyInfo(context.TODO(), user.ID, curDayString)
 
 		if len(strings.Split(text, " ")) == 1 {
+			if day.Date == "" {
+				day.Date = curDayString
+			}
 			_, err = b.Send(user, day.String())
 			return err
 		}
 
-		var dailyEatingInfo dishes.DailyEatingInfo
 		for _, dishString := range strings.Split(text, "\n") {
-			dish := parseUsersDish(dishString)
-			err = repos.InsertDish(context.TODO(), dish)
-			if err != nil {
-				return err
+			dish, isTestData := parseUsersDish(dishString)
+			if isTestData {
+				err = repos.InsertDish(context.TODO(), dish)
+				if err != nil {
+					log.Println(err)
+				}
 			}
-			dailyEatingInfo = addDishToDay(day, dish)
-			err = repos.InsertDailyInfo(context.TODO(), user.ID, dailyEatingInfo)
-			if err != nil {
-				log.Println(err)
+
+			day = addDishToDay(day, dish)
+			if isTestData {
+				err = repos.InsertDailyInfo(context.TODO(), user.ID, day)
+				if err != nil {
+					log.Println(err)
+				}
 			}
 		}
 
-		_, err = b.Send(user, dailyEatingInfo.String())
+		_, err = b.Send(user, day.String())
 		if err != nil {
 			return err
 		}
@@ -119,49 +127,38 @@ func addDishToDay(dInfo dishes.DailyEatingInfo, d dishes.Dish) dishes.DailyEatin
 // название блюда / калориии / б / ж / у / грамм
 // б-ж-у и граммы опциональны, можно не указывать их или пропустить через "-"
 // если кол-во грамм не указано, то калории добавляются напрямую, иначе считаются по формуле "всего калорий" = "калории" * грамм * 0,01
-func parseUsersDish(text string) dishes.Dish {
+func parseUsersDish(text string) (dishes.Dish, bool) {
 	// Expect input like: "DishName / 250 / 10 / 5 / 30 / 150"
+	var isTestingData bool
 	parts := strings.Split(text, " ")
 
 	var d dishes.Dish
-	if len(parts) == 0 {
-		return d
+	if len(parts) < 2 {
+		return d, isTestingData
 	}
 
 	// Name
 	d.Name = parts[0]
+	d.Calories = parseFloatValueAsInt64(parts[1])
 
-	// helper to parse int, treating "-" or empty as zero and ignoring errors
-	parseInt := func(s string) int64 {
-		if s == "" || s == "-" {
-			return 0
-		}
-		v, err := strconv.Atoi(s)
-		if err != nil {
-			return 0
-		}
-		return int64(v)
-	}
-
-	// calories
-	if len(parts) >= 2 {
-		d.Calories = parseInt(parts[1])
-	}
-	// protein
-	if len(parts) >= 3 {
-		d.Protein = parseInt(parts[2])
-	}
-	// fat
-	if len(parts) >= 4 {
-		d.Fat = parseInt(parts[3])
-	}
-	// carbs
-	if len(parts) >= 5 {
-		d.Carbohydrates = parseInt(parts[4])
-	}
-	// weight (grams)
-	if len(parts) >= 6 {
-		d.Weight = parseInt(parts[5])
+	switch len(parts) {
+	case 7:
+		isTestingData = parts[6] == "t"
+		fallthrough
+	case 6:
+		d.Weight = parseFloatValueAsInt64(parts[5])
+		fallthrough
+	case 5:
+		d.Carbohydrates = parseFloatValueAsInt64(parts[4])
+		fallthrough
+	case 4:
+		d.Fat = parseFloatValueAsInt64(parts[3])
+		fallthrough
+	case 3:
+		d.Protein = parseFloatValueAsInt64(parts[2])
+	default:
+		isTestingData = true
+		return d, isTestingData
 	}
 
 	// If weight specified (>0), scale nutrients and calories proportionally
@@ -180,5 +177,17 @@ func parseUsersDish(text string) dishes.Dish {
 		d.Carbohydrates = int64(dCarb + 0.5)
 	}
 
-	return d
+	return d, isTestingData
+}
+
+func parseFloatValueAsInt64(s string) int64 {
+	if s == "-" {
+		return 0
+	}
+	s = strings.ReplaceAll(s, ",", ".") // Replace comma with dot
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return 0
+	}
+	return int64(f)
 }
