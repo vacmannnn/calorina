@@ -8,7 +8,7 @@ import (
 	"github.com/vacmannnn/calorina/internal/domain/dishes"
 )
 
-func (r *Repository) InsertDish(ctx context.Context, d dishes.Dish) error {
+func (r *Repository) InsertDish(ctx context.Context, d dishes.Dish) (int64, error) {
 	return r.queries.UpsertDishInfo(ctx, sqlc.UpsertDishInfoParams{
 		Name:     d.Name,
 		Calories: d.Calories,
@@ -31,17 +31,23 @@ func (r *Repository) InsertDish(ctx context.Context, d dishes.Dish) error {
 	})
 }
 
-func (r *Repository) GetDish(ctx context.Context, dishIDs []int64) ([]dishes.Dish, error) {
+func (r *Repository) GetDishes(ctx context.Context, dishIDs []int64) ([]dishes.Dish, error) {
 	results := make([]dishes.Dish, 0, len(dishIDs))
 
 	for _, name := range dishIDs {
-		dishName, err := r.queries.GetDishNameByID(ctx, name)
+		dish, err := r.queries.GetDishNameByID(ctx, name)
 		if err != nil {
 			continue
 		}
 
 		results = append(results, dishes.Dish{
-			Name: dishName,
+			ID:            dish.ID,
+			Name:          dish.Name,
+			Calories:      dish.Calories,
+			Protein:       dish.Protein.Int64,
+			Fat:           dish.Fat.Int64,
+			Carbohydrates: dish.Carbohydrates.Int64,
+			Weight:        dish.Weight.Int64,
 		})
 	}
 

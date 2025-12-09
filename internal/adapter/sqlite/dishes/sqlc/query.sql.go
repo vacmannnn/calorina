@@ -37,16 +37,24 @@ func (q *Queries) GetByUserIDAndDate(ctx context.Context, arg GetByUserIDAndDate
 }
 
 const getDishNameByID = `-- name: GetDishNameByID :one
-SELECT d.name
+SELECT id, name, calories, protein, fat, carbohydrates, weight
 FROM dishes d
 WHERE d.id = ?1
 `
 
-func (q *Queries) GetDishNameByID(ctx context.Context, id int64) (string, error) {
+func (q *Queries) GetDishNameByID(ctx context.Context, id int64) (Dish, error) {
 	row := q.db.QueryRowContext(ctx, getDishNameByID, id)
-	var name string
-	err := row.Scan(&name)
-	return name, err
+	var i Dish
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Calories,
+		&i.Protein,
+		&i.Fat,
+		&i.Carbohydrates,
+		&i.Weight,
+	)
+	return i, err
 }
 
 const upsertDailyInfo = `-- name: UpsertDailyInfo :exec
@@ -83,9 +91,10 @@ func (q *Queries) UpsertDailyInfo(ctx context.Context, arg UpsertDailyInfoParams
 	return err
 }
 
-const upsertDishInfo = `-- name: UpsertDishInfo :exec
+const upsertDishInfo = `-- name: UpsertDishInfo :one
 INSERT INTO dishes (name, calories, protein, fat, carbohydrates, weight)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+RETURNING id
 `
 
 type UpsertDishInfoParams struct {
@@ -97,8 +106,8 @@ type UpsertDishInfoParams struct {
 	Weight        sql.NullInt64
 }
 
-func (q *Queries) UpsertDishInfo(ctx context.Context, arg UpsertDishInfoParams) error {
-	_, err := q.db.ExecContext(ctx, upsertDishInfo,
+func (q *Queries) UpsertDishInfo(ctx context.Context, arg UpsertDishInfoParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, upsertDishInfo,
 		arg.Name,
 		arg.Calories,
 		arg.Protein,
@@ -106,5 +115,7 @@ func (q *Queries) UpsertDishInfo(ctx context.Context, arg UpsertDishInfoParams) 
 		arg.Carbohydrates,
 		arg.Weight,
 	)
-	return err
+	var id int64
+	err := row.Scan(&id)
+	return id, err
 }

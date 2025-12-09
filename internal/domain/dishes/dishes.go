@@ -8,6 +8,7 @@ import (
 )
 
 type Dish struct {
+	ID            int64
 	Name          string
 	Calories      int64
 	Protein       int64
@@ -110,8 +111,8 @@ type DailyEatingInfo struct {
 	TotalFats          int64
 	TotalCarbohydrates int64
 
-	Date        string
-	DishesNames []string
+	Date   string
+	Dishes []Dish
 }
 
 func (dei *DailyEatingInfo) String() string {
@@ -125,15 +126,15 @@ func (dei *DailyEatingInfo) String() string {
 Блюда съедены: %s`
 
 	var dishesName string
-	for _, name := range dei.DishesNames {
-		if name == "" {
+	for _, dish := range dei.Dishes {
+		if dish.Name == "" {
 			continue
 		}
-		dishesName += "'" + name + "', "
+		dishesName += "'" + dish.Name + "', "
 	}
 
 	return fmt.Sprintf(pattern, dei.Date, dei.TotalCalories, dei.TotalProteins,
-		dei.TotalFats, dei.TotalCarbohydrates, dishesName[:len(dishesName)-2])
+		dei.TotalFats, dei.TotalCarbohydrates, dishesName[:max(0, len(dishesName)-2)])
 }
 
 func (dei *DailyEatingInfo) AddDishToDay(d Dish) {
@@ -142,5 +143,5 @@ func (dei *DailyEatingInfo) AddDishToDay(d Dish) {
 	dei.TotalProteins += d.Protein
 	dei.TotalFats += d.Fat
 	dei.TotalCarbohydrates += d.Carbohydrates
-	dei.DishesNames = append(dei.DishesNames, d.Name)
+	dei.Dishes = append(dei.Dishes, d)
 }

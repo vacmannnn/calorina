@@ -21,6 +21,7 @@ func main() {
 	defer closer()
 	bot := NewBot(repos, tgBotAPI)
 
+	tgBotAPI.Handle("/dishes", bot.printDishes)
 	tgBotAPI.Handle(tele.OnText, bot.handleText)
 
 	log.Println("starting telegram bot")

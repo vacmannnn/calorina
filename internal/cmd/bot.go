@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -18,6 +19,44 @@ type Bot struct {
 
 func NewBot(repo *repo.Repository, botAPI *tele.Bot) *Bot {
 	return &Bot{repo: repo, botAPI: botAPI}
+}
+
+func (b *Bot) printDishes(c tele.Context) error {
+	var (
+		user = c.Sender()
+		text = c.Text()
+	)
+	log.Println("got message from:", user.FirstName, "text:", text)
+
+	curDayString := time.Now().Format("02.01.2006")
+	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	//- Белков - %d гр.
+	//- Жиров - %d гр.
+	//- Углеводов - %d гр.
+	//- Вес - %d гр.
+	pattern := `
+Блюдо %d:
+- Название - %s
+- Калорийность - %d ккал.
+- id блюда - %d
+`
+	var output string
+	for i, dish := range day.Dishes {
+		output += fmt.Sprintf(pattern, i+1, dish.Name, dish.Calories, dish.ID)
+	}
+	output = day.String() + output
+
+	_, err = b.botAPI.Send(user, output)
+	if err != nil {
+		log.Println(err)
+	}
+
+	return nil
 }
 
 func (b *Bot) handleText(c tele.Context) error {
@@ -37,10 +76,11 @@ func (b *Bot) handleText(c tele.Context) error {
 	for _, dishString := range strings.Split(text, "\n") {
 		dish, isTestData := dishes.NewDish(dishString)
 		if !isTestData {
-			err = b.repo.InsertDish(context.TODO(), dish)
+			dishID, err := b.repo.InsertDish(context.TODO(), dish)
 			if err != nil {
 				log.Println(err)
 			}
+			dish.ID = dishID
 		}
 
 		day.AddDishToDay(dish)

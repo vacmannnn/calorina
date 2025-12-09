@@ -13,11 +13,12 @@ VALUES (@user_id, @date, @total_calories, @total_proteins, @total_fats, @total_c
                                       total_carbohydrates = EXCLUDED.total_carbohydrates,
                                       dishes_ids = EXCLUDED.dishes_ids;
 
--- name: UpsertDishInfo :exec
+-- name: UpsertDishInfo :one
 INSERT INTO dishes (name, calories, protein, fat, carbohydrates, weight)
-VALUES (@name, @calories, @protein, @fat, @carbohydrates, @weight);
+VALUES (@name, @calories, @protein, @fat, @carbohydrates, @weight)
+RETURNING id;
 
 -- name: GetDishNameByID :one
-SELECT d.name
+SELECT *
 FROM dishes d
 WHERE d.id = @id;
