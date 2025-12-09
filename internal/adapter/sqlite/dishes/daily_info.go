@@ -3,6 +3,7 @@ package dishes
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/vacmannnn/calorina/internal/adapter/sqlite/dishes/sqlc"
@@ -14,7 +15,7 @@ func (r *Repository) GetDailyInfo(ctx context.Context, userID int64, date string
 		UserID: userID,
 		Date:   date,
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return dishes.DailyEatingInfo{}, err
 	}
 
@@ -24,7 +25,7 @@ func (r *Repository) GetDailyInfo(ctx context.Context, userID int64, date string
 		TotalFats:          info.TotalFats.Int64,
 		TotalCarbohydrates: info.TotalCarbohydrates.Int64,
 		Date:               info.Date,
-		DishesNames:        strings.Split(info.DishesIds, " "),
+		DishesNames:        strings.Split(info.DishesIds, ";"),
 	}, nil
 }
 
@@ -45,6 +46,6 @@ func (r *Repository) InsertDailyInfo(ctx context.Context, userID int64, d dishes
 			Int64: d.TotalCarbohydrates,
 			Valid: true,
 		},
-		DishesIds: strings.Join(d.DishesNames, " "),
+		DishesIds: strings.Join(d.DishesNames, ";"),
 	})
 }

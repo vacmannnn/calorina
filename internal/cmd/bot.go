@@ -34,20 +34,9 @@ func (b *Bot) handleText(c tele.Context) error {
 		return err
 	}
 
-	if len(strings.Split(text, " ")) == 1 {
-		if day.Date == "" {
-			day.Date = curDayString
-		}
-		_, err = b.botAPI.Send(user, day.String())
-		if err != nil {
-			log.Println(err)
-		}
-		return err
-	}
-
 	for _, dishString := range strings.Split(text, "\n") {
 		dish, isTestData := dishes.NewDish(dishString)
-		if isTestData {
+		if !isTestData {
 			err = b.repo.InsertDish(context.TODO(), dish)
 			if err != nil {
 				log.Println(err)
@@ -55,7 +44,7 @@ func (b *Bot) handleText(c tele.Context) error {
 		}
 
 		day.AddDishToDay(dish)
-		if isTestData {
+		if !isTestData {
 			err = b.repo.InsertDailyInfo(context.TODO(), user.ID, day)
 			if err != nil {
 				log.Println(err)

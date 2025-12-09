@@ -25,12 +25,17 @@ func NewDish(text string) (Dish, bool) {
 	parts := strings.Split(text, " ")
 
 	var d Dish
+
 	if len(parts) < 2 {
+		isTestingData = true
 		return d, isTestingData
 	}
+	d.Name, parts = parseDishName(parts)
 
-	// Name
-	d.Name = parts[0]
+	if len(parts) < 2 {
+		isTestingData = true
+		return d, isTestingData
+	}
 	d.Calories = parseFloatValueAsInt64(parts[1])
 
 	switch len(parts) {
@@ -72,6 +77,21 @@ func NewDish(text string) (Dish, bool) {
 	return d, isTestingData
 }
 
+func parseDishName(parts []string) (string, []string) {
+	var wordsCount int
+	for i := range parts {
+		if parseFloatValueAsInt64(parts[i]) != 0 {
+			wordsCount = i
+			break
+		}
+	}
+
+	if wordsCount == 0 {
+		return "", []string{}
+	}
+	return strings.Join(parts[:wordsCount], " "), parts[wordsCount-1:]
+}
+
 func parseFloatValueAsInt64(s string) int64 {
 	if s == "-" {
 		return 0
@@ -94,7 +114,7 @@ type DailyEatingInfo struct {
 	DishesNames []string
 }
 
-func (dei DailyEatingInfo) String() string {
+func (dei *DailyEatingInfo) String() string {
 	pattern := `
 Текущая дата: %s
 Итого калорий за день: %d
@@ -104,11 +124,19 @@ func (dei DailyEatingInfo) String() string {
 
 Блюда съедены: %s`
 
+	var dishesName string
+	for _, name := range dei.DishesNames {
+		if name == "" {
+			continue
+		}
+		dishesName += "'" + name + "', "
+	}
+
 	return fmt.Sprintf(pattern, dei.Date, dei.TotalCalories, dei.TotalProteins,
-		dei.TotalFats, dei.TotalCarbohydrates, strings.Join(dei.DishesNames, " "))
+		dei.TotalFats, dei.TotalCarbohydrates, dishesName[:len(dishesName)-2])
 }
 
-func (dei DailyEatingInfo) AddDishToDay(d Dish) {
+func (dei *DailyEatingInfo) AddDishToDay(d Dish) {
 	dei.Date = time.Now().Format("02.01.2006")
 	dei.TotalCalories += d.Calories
 	dei.TotalProteins += d.Protein

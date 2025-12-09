@@ -7,7 +7,6 @@ import (
 )
 
 // todo:
-// 9. multi-words dishes names
 // 10. remove dishes
 // 11. check specific day
 // 5. deploy somewhere (optional)
@@ -17,7 +16,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	repos := initDB()
+	repos, closer := initDB()
+	defer closer()
 	bot := NewBot(repos, tgBotAPI)
 
 	tgBotAPI.Handle(tele.OnText, bot.handleText)
