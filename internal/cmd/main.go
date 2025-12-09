@@ -11,6 +11,7 @@ import (
 // 11. check specific day
 // 5. deploy somewhere (optional)
 // 6. readable readme
+// 12. linter fixes
 func main() {
 	tgBotAPI, err := initTgBotAPI()
 	if err != nil {
