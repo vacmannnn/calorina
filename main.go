@@ -1,62 +1,31 @@
 package main
 
 import (
-	"fmt"
+	"context"
+	"database/sql"
 	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	repo "github.com/vacmannnn/calorina/internal/adapter/sqlite/dishes"
+	"github.com/vacmannnn/calorina/internal/domain/dishes"
 	tele "gopkg.in/telebot.v4"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
-type Dish struct {
-	Name          string
-	Calories      int
-	Protein       int
-	Fat           int
-	Carbohydrates int
-	Weight        int
-}
-
-type DailyEatingInfo struct {
-	TotalCalories      int
-	TotalProteins      int
-	TotalFats          int
-	TotalCarbohydrates int
-
-	Date   string
-	Dishes []Dish
-}
-
-func (dei DailyEatingInfo) String() string {
-	pattern := `
-Текущая дата: %s
-Итого калорий за день: %d
-Итого белков за день: %d
-Итого жиров за день: %d
-Итого углеводов за день: %d
-
-Блюда съедены: %s`
-	dishesNames := make([]string, len(dei.Dishes))
-	for _, dish := range dei.Dishes {
-		dishesNames = append(dishesNames, dish.Name)
-	}
-
-	return fmt.Sprintf(pattern, dei.Date, dei.TotalCalories, dei.TotalProteins,
-		dei.TotalFats, dei.TotalCarbohydrates, strings.Join(dishesNames, " "))
-}
-
-var usersDishesInfo = map[int64]map[string]DailyEatingInfo{}
-
 // todo:
-// 1. sqlite to store users info
-// 2. parse optional parameters (fat/protein/etc)
 // 3. parse values as floats
 // 4. move bot logic into separate function
 // 5. deploy somewhere (optional)
 // 6. readable readme
+// 7. global refactoring
+// 8. option to get daily info
+// 9. multi-words dishes names
 func main() {
 	pref := tele.Settings{
 		Token:  os.Getenv("TOKEN_CALORINA"),
@@ -69,7 +38,27 @@ func main() {
 		return
 	}
 
-	// main message is:
+	db, err := sql.Open("sqlite3", "file:mydb.db?cache=shared&mode=rwc")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Apply migrations
+	m, err := migrate.New(
+		"file://schema/sqlite", // Path to your migration files
+		"sqlite3://mydb.db") // Database URL
+	if err != nil {
+		log.Fatalf("failed to create migrate instance: %v", err)
+	}
+
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		log.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	log.Println("Migrations applied successfully!")
+
+	repos := repo.NewRepository(db)
 
 	b.Handle(tele.OnText, func(c tele.Context) error {
 		// All the text messages that weren't
@@ -81,24 +70,29 @@ func main() {
 		)
 		log.Println("got message from:", user.FirstName, "text:", text)
 
-		if user.FirstName == "Arina" {
-			return c.Send("<3")
-		}
-
-		log.Println(usersDishesInfo, usersDishesInfo[user.ID])
 		curDayString := time.Now().Format("02.01.2006")
-		if usersDishesInfo[user.ID] == nil {
-			usersDishesInfo[user.ID] = map[string]DailyEatingInfo{}
-		}
-		curDay := usersDishesInfo[user.ID][curDayString]
+		day, err := repos.GetDailyInfo(context.TODO(), user.ID, curDayString)
 
+		if len(strings.Split(text, " ")) == 1 {
+			_, err = b.Send(user, day.String())
+			return err
+		}
+
+		var dailyEatingInfo dishes.DailyEatingInfo
 		for _, dishString := range strings.Split(text, "\n") {
 			dish := parseUsersDish(dishString)
-			dailyEatingInfo := addDishToDay(curDay, dish)
-			usersDishesInfo[user.ID][curDayString] = dailyEatingInfo
+			err = repos.InsertDish(context.TODO(), dish)
+			if err != nil {
+				return err
+			}
+			dailyEatingInfo = addDishToDay(day, dish)
+			err = repos.InsertDailyInfo(context.TODO(), user.ID, dailyEatingInfo)
+			if err != nil {
+				log.Println(err)
+			}
 		}
 
-		_, err := b.Send(user, usersDishesInfo[user.ID][curDayString].String())
+		_, err = b.Send(user, dailyEatingInfo.String())
 		if err != nil {
 			return err
 		}
@@ -111,25 +105,25 @@ func main() {
 	b.Start()
 }
 
-func addDishToDay(dInfo DailyEatingInfo, d Dish) DailyEatingInfo {
-	return DailyEatingInfo{
+func addDishToDay(dInfo dishes.DailyEatingInfo, d dishes.Dish) dishes.DailyEatingInfo {
+	return dishes.DailyEatingInfo{
 		Date:               time.Now().Format("02.01.2006"),
 		TotalCalories:      dInfo.TotalCalories + d.Calories,
 		TotalProteins:      dInfo.TotalProteins + d.Protein,
 		TotalFats:          dInfo.TotalFats + d.Fat,
 		TotalCarbohydrates: dInfo.TotalCarbohydrates + d.Carbohydrates,
-		Dishes:             append(dInfo.Dishes, d),
+		DishesNames:        append(dInfo.DishesNames, d.Name),
 	}
 }
 
 // название блюда / калориии / б / ж / у / грамм
 // б-ж-у и граммы опциональны, можно не указывать их или пропустить через "-"
 // если кол-во грамм не указано, то калории добавляются напрямую, иначе считаются по формуле "всего калорий" = "калории" * грамм * 0,01
-func parseUsersDish(text string) Dish {
+func parseUsersDish(text string) dishes.Dish {
 	// Expect input like: "DishName / 250 / 10 / 5 / 30 / 150"
 	parts := strings.Split(text, " ")
 
-	var d Dish
+	var d dishes.Dish
 	if len(parts) == 0 {
 		return d
 	}
@@ -138,7 +132,7 @@ func parseUsersDish(text string) Dish {
 	d.Name = parts[0]
 
 	// helper to parse int, treating "-" or empty as zero and ignoring errors
-	parseInt := func(s string) int {
+	parseInt := func(s string) int64 {
 		if s == "" || s == "-" {
 			return 0
 		}
@@ -146,7 +140,7 @@ func parseUsersDish(text string) Dish {
 		if err != nil {
 			return 0
 		}
-		return v
+		return int64(v)
 	}
 
 	// calories
@@ -180,10 +174,10 @@ func parseUsersDish(text string) Dish {
 		dCarb := float64(d.Carbohydrates) * factor
 
 		// assign back as ints
-		d.Calories = int(dCalories + 0.5)
-		d.Protein = int(dProtein + 0.5)
-		d.Fat = int(dFat + 0.5)
-		d.Carbohydrates = int(dCarb + 0.5)
+		d.Calories = int64(dCalories + 0.5)
+		d.Protein = int64(dProtein + 0.5)
+		d.Fat = int64(dFat + 0.5)
+		d.Carbohydrates = int64(dCarb + 0.5)
 	}
 
 	return d

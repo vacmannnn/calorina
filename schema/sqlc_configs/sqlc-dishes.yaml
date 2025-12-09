@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - engine: "sqlite"
+    queries: "../../internal/adapter/sqlite/dishes/sql/query.sql"
+    schema: "../sqlite"
+    gen:
+      go:
+        package: "sqlc"
+        out: "../../internal/adapter/sqlite/dishes/sqlc/"
