@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,9 +25,7 @@ func NewBot(repo *repo.Repository, botAPI *tele.Bot) *Bot {
 func (b *Bot) printDishes(c tele.Context) error {
 	var (
 		user = c.Sender()
-		text = c.Text()
 	)
-	log.Println("got message from:", user.FirstName, "text:", text)
 
 	curDayString := time.Now().Format("02.01.2006")
 	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
@@ -59,12 +58,45 @@ func (b *Bot) printDishes(c tele.Context) error {
 	return nil
 }
 
+func (b *Bot) deleteDishes(c tele.Context) error {
+	var (
+		user = c.Sender()
+		text = c.Text()
+	)
+
+	curDayString := time.Now().Format("02.01.2006")
+	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+
+	ids := strings.Split(text, " ")[1:]
+	for _, id := range ids {
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			continue
+		}
+		day.RemoveDishByID(int64(idInt))
+	}
+
+	err = b.repo.InsertDailyInfo(context.TODO(), user.ID, day)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, err = b.botAPI.Send(user, day.String())
+	if err != nil {
+		log.Println(err)
+	}
+	return err
+}
+
 func (b *Bot) handleText(c tele.Context) error {
 	var (
 		user = c.Sender()
 		text = c.Text()
 	)
-	log.Println("got message from:", user.FirstName, "text:", text)
 
 	curDayString := time.Now().Format("02.01.2006")
 	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)

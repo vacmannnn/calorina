@@ -145,3 +145,16 @@ func (dei *DailyEatingInfo) AddDishToDay(d Dish) {
 	dei.TotalCarbohydrates += d.Carbohydrates
 	dei.Dishes = append(dei.Dishes, d)
 }
+
+func (dei *DailyEatingInfo) RemoveDishByID(dishID int64) {
+	for i, dish := range dei.Dishes {
+		if dish.ID == dishID {
+			dei.Dishes = append(dei.Dishes[:i], dei.Dishes[i+1:]...)
+			dei.TotalCalories = max(dei.TotalCalories-dish.Calories, 0)
+			dei.TotalProteins = max(dei.TotalProteins-dish.Protein, 0)
+			dei.TotalFats = max(dei.TotalFats-dish.Fat, 0)
+			dei.TotalCarbohydrates = max(dei.TotalCarbohydrates-dish.Carbohydrates, 0)
+			return
+		}
+	}
+}
