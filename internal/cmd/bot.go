@@ -1,24 +1,26 @@
 package main
 
 import (
-	"context"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
 	repo "github.com/vacmannnn/calorina/internal/adapter/sqlite/dishes"
-	"github.com/vacmannnn/calorina/internal/domain/dishes"
+	dservice "github.com/vacmannnn/calorina/internal/service/dishes"
 	tele "gopkg.in/telebot.v4"
 )
 
 type Bot struct {
-	repo   *repo.Repository
-	botAPI *tele.Bot
+	repo    *repo.Repository
+	botAPI  *tele.Bot
+	service *dservice.Service
 }
 
-func NewBot(repo *repo.Repository, botAPI *tele.Bot) *Bot {
-	return &Bot{repo: repo, botAPI: botAPI}
+func NewBot(service *dservice.Service, botAPI *tele.Bot) *Bot {
+	return &Bot{
+		service: service,
+		botAPI:  botAPI,
+	}
 }
 
 func (b *Bot) printDishes(c tele.Context) error {
@@ -26,8 +28,7 @@ func (b *Bot) printDishes(c tele.Context) error {
 		user = c.Sender()
 	)
 
-	curDayString := time.Now().Format("02.01.2006")
-	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	day, err := b.service.GetSpecificDayInfo(user.ID, time.Now().Format("02.01.2006"))
 	if err != nil {
 		log.Println(err)
 		return err
@@ -51,14 +52,12 @@ func (b *Bot) checkDate(c tele.Context) error {
 	if len(sp) != 2 {
 		return c.Send("better luck next time")
 	}
+
 	curDayString := sp[1]
-	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	day, err := b.service.GetSpecificDayInfo(user.ID, curDayString)
 	if err != nil {
 		log.Println(err)
 		return err
-	}
-	if day.Date != curDayString {
-		return c.Send("better luck next time")
 	}
 
 	_, err = b.botAPI.Send(user, day.StringFullInfo())
@@ -76,22 +75,7 @@ func (b *Bot) deleteDishes(c tele.Context) error {
 	)
 
 	curDayString := time.Now().Format("02.01.2006")
-	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-
-	ids := strings.Split(text, " ")[1:]
-	for _, id := range ids {
-		idInt, err := strconv.Atoi(id)
-		if err != nil {
-			continue
-		}
-		day.RemoveDishByID(int64(idInt))
-	}
-
-	err = b.repo.InsertDailyInfo(context.TODO(), user.ID, day)
+	day, err := b.service.RemoveDishesFromDay(user.ID, text, curDayString)
 	if err != nil {
 		log.Println(err)
 	}
@@ -103,6 +87,31 @@ func (b *Bot) deleteDishes(c tele.Context) error {
 	return err
 }
 
+func (b *Bot) addToDate(c tele.Context) error {
+	var (
+		user = c.Sender()
+		text = c.Text()
+	)
+
+	lines := strings.Split(text, "\n")
+	if len(strings.Split(lines[0], " ")) != 2 {
+		return c.Send("better luck next time")
+	}
+
+	curDayString := strings.Split(lines[0], " ")[1]
+	day, err := b.service.AddDishesToDay(user.ID, strings.Join(lines[1:], "\n"), curDayString)
+	if err != nil {
+		log.Println(err)
+	}
+
+	_, err = b.botAPI.Send(user, day.String())
+	if err != nil {
+		log.Println(err)
+	}
+
+	return nil
+}
+
 func (b *Bot) handleText(c tele.Context) error {
 	var (
 		user = c.Sender()
@@ -110,29 +119,9 @@ func (b *Bot) handleText(c tele.Context) error {
 	)
 
 	curDayString := time.Now().Format("02.01.2006")
-	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	day, err := b.service.AddDishesToDay(user.ID, text, curDayString)
 	if err != nil {
 		log.Println(err)
-		return err
-	}
-
-	for _, dishString := range strings.Split(text, "\n") {
-		dish, isTestData := dishes.NewDish(dishString)
-		if !isTestData {
-			dishID, err := b.repo.InsertDish(context.TODO(), dish)
-			if err != nil {
-				log.Println(err)
-			}
-			dish.ID = dishID
-		}
-
-		day.AddDishToDay(dish)
-		if !isTestData {
-			err = b.repo.InsertDailyInfo(context.TODO(), user.ID, day)
-			if err != nil {
-				log.Println(err)
-			}
-		}
 	}
 
 	_, err = b.botAPI.Send(user, day.String())
