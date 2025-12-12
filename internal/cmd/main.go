@@ -14,7 +14,6 @@ func logMessage(next tele.HandlerFunc) tele.HandlerFunc {
 }
 
 // todo:
-// 11. check specific day
 // 5. deploy somewhere (optional)
 // 6. readable readme
 // 12. linter fixes
@@ -30,6 +29,7 @@ func main() {
 
 	tgBotAPI.Handle("/dishes", bot.printDishes, logMessage)
 	tgBotAPI.Handle("/delete", bot.deleteDishes, logMessage)
+	tgBotAPI.Handle("/date", bot.checkDate, logMessage)
 	tgBotAPI.Handle(tele.OnText, bot.handleText, logMessage)
 
 	log.Println("starting telegram bot")

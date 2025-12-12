@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -34,23 +33,35 @@ func (b *Bot) printDishes(c tele.Context) error {
 		return err
 	}
 
-	//- Белков - %d гр.
-	//- Жиров - %d гр.
-	//- Углеводов - %d гр.
-	//- Вес - %d гр.
-	pattern := `
-Блюдо %d:
-- Название - %s
-- Калорийность - %d ккал.
-- id блюда - %d
-`
-	var output string
-	for i, dish := range day.Dishes {
-		output += fmt.Sprintf(pattern, i+1, dish.Name, dish.Calories, dish.ID)
+	_, err = b.botAPI.Send(user, day.StringFullInfo())
+	if err != nil {
+		log.Println(err)
 	}
-	output = day.String() + output
 
-	_, err = b.botAPI.Send(user, output)
+	return nil
+}
+
+func (b *Bot) checkDate(c tele.Context) error {
+	var (
+		user = c.Sender()
+		text = c.Text()
+	)
+
+	sp := strings.Split(text, " ")
+	if len(sp) != 2 {
+		return c.Send("better luck next time")
+	}
+	curDayString := sp[1]
+	day, err := b.repo.GetDailyInfo(context.TODO(), user.ID, curDayString)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	if day.Date != curDayString {
+		return c.Send("better luck next time")
+	}
+
+	_, err = b.botAPI.Send(user, day.StringFullInfo())
 	if err != nil {
 		log.Println(err)
 	}
