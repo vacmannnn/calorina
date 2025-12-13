@@ -36,6 +36,8 @@ func (s *Service) AddDishesToDay(userID int64, input, date string) (dishes.Daily
 		}
 
 		dailyInfo.AddDishToDay(dish)
+
+		// todo: write to db by bunches, create slice for dishes and write it all, and mix with testing and non testing data bug
 		if !isTestData {
 			err = s.repo.InsertDailyInfo(context.TODO(), userID, dailyInfo)
 			if err != nil {

@@ -163,7 +163,9 @@ func (dei *DailyEatingInfo) StringBasicInfo() string {
 }
 
 func (dei *DailyEatingInfo) AddDishToDay(d Dish) {
-	dei.Date = time.Now().Format("02.01.2006")
+	if dei.Date == "" {
+		dei.Date = time.Now().Format("02.01.2006")
+	}
 	dei.TotalCalories += d.Calories
 	dei.TotalProteins += d.Protein
 	dei.TotalFats += d.Fat
