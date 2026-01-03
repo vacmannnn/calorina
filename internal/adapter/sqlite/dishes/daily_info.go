@@ -24,7 +24,7 @@ func (r *Repository) GetDailyInfo(ctx context.Context, userID int64, date string
 	var idInts []int64
 	for _, ids := range strings.Split(strings.TrimSpace(info.DishesIds), ";") {
 		id, err := strconv.Atoi(ids)
-		if err != nil {
+		if ids != "" && err != nil {
 			log.Println("failed to parse dish id", ids)
 		}
 		idInts = append(idInts, int64(id))

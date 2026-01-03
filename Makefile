@@ -2,6 +2,10 @@
 # run service
 # ============================================================================
 
+.PHONY: build
+build:
+	go build -o calorina ./internal/cmd/*
+
 .PHONY: run
 run:
 	go run ./...
