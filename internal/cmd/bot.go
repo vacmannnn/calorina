@@ -112,6 +112,16 @@ func (b *Bot) addToDate(c tele.Context) error {
 	return nil
 }
 
+func (b *Bot) helpMessage(c tele.Context) error {
+	helpMessage := `/dishes - посмотреть информацию о блюдах за текущий день 
+/delete ID - удалить блюдо за текущий день
+/date - посмотреть результаты за конкретную дату (формат '19.01.2026')
+/add - добавить блюдо к какому-то дню
+`
+
+	return c.Send(helpMessage)
+}
+
 func (b *Bot) handleText(c tele.Context) error {
 	var (
 		user = c.Sender()
