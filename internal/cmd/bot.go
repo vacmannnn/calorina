@@ -6,6 +6,7 @@ import (
 	"time"
 
 	repo "github.com/vacmannnn/calorina/internal/adapter/sqlite/dishes"
+	"github.com/vacmannnn/calorina/internal/domain/dishes"
 	dservice "github.com/vacmannnn/calorina/internal/service/dishes"
 	tele "gopkg.in/telebot.v4"
 )
@@ -34,7 +35,7 @@ func (b *Bot) printDishes(c tele.Context) error {
 		return err
 	}
 
-	_, err = b.botAPI.Send(user, day.StringFullInfo())
+	_, err = b.botAPI.Send(user, b.dayFullString(user.ID, day))
 	if err != nil {
 		log.Println(err)
 	}
@@ -60,7 +61,7 @@ func (b *Bot) checkDate(c tele.Context) error {
 		return err
 	}
 
-	_, err = b.botAPI.Send(user, day.StringFullInfo())
+	_, err = b.botAPI.Send(user, b.dayFullString(user.ID, day))
 	if err != nil {
 		log.Println(err)
 	}
@@ -80,7 +81,7 @@ func (b *Bot) deleteDishes(c tele.Context) error {
 		log.Println(err)
 	}
 
-	_, err = b.botAPI.Send(user, day.String())
+	_, err = b.botAPI.Send(user, b.dayString(user.ID, day))
 	if err != nil {
 		log.Println(err)
 	}
@@ -104,7 +105,7 @@ func (b *Bot) addToDate(c tele.Context) error {
 		log.Println(err)
 	}
 
-	_, err = b.botAPI.Send(user, day.String())
+	_, err = b.botAPI.Send(user, b.dayString(user.ID, day))
 	if err != nil {
 		log.Println(err)
 	}
@@ -117,9 +118,28 @@ func (b *Bot) helpMessage(c tele.Context) error {
 /delete ID - удалить блюдо за текущий день
 /date - посмотреть результаты за конкретную дату (формат '19.01.2026')
 /add - добавить блюдо к какому-то дню
+/goal ККАЛ Б Ж У - задать цель на день
 `
 
 	return c.Send(helpMessage)
+}
+
+func (b *Bot) setGoal(c tele.Context) error {
+	var (
+		user = c.Sender()
+		text = c.Text()
+	)
+
+	goal, err := b.service.SetGoal(user.ID, text)
+	if err != nil {
+		log.Println(err)
+		return err
+	}
+	if goal == (dishes.Goal{}) {
+		return c.Send("формат: /goal 2000 150 70 250")
+	}
+
+	return c.Send(goal.String())
 }
 
 func (b *Bot) handleText(c tele.Context) error {
@@ -134,10 +154,27 @@ func (b *Bot) handleText(c tele.Context) error {
 		log.Println(err)
 	}
 
-	_, err = b.botAPI.Send(user, day.String())
+	_, err = b.botAPI.Send(user, b.dayString(user.ID, day))
 	if err != nil {
 		log.Println(err)
 	}
 
 	return nil
+}
+
+func (b *Bot) dayString(userID int64, day dishes.DailyEatingInfo) string {
+	return b.withGoal(userID, day, day.String())
+}
+
+func (b *Bot) dayFullString(userID int64, day dishes.DailyEatingInfo) string {
+	return b.withGoal(userID, day, day.StringFullInfo())
+}
+
+func (b *Bot) withGoal(userID int64, day dishes.DailyEatingInfo, message string) string {
+	goal, ok, err := b.service.GetGoal(userID)
+	if err != nil || !ok {
+		return message
+	}
+
+	return message + "\n" + day.RemainingString(goal)
 }

@@ -27,3 +27,11 @@ type Dish struct {
 	Carbohydrates sql.NullInt64
 	Weight        sql.NullInt64
 }
+
+type UserGoal struct {
+	UserID        int64
+	Calories      int64
+	Proteins      int64
+	Fats          int64
+	Carbohydrates int64
+}

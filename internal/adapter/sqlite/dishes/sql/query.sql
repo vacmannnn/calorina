@@ -22,3 +22,17 @@ RETURNING id;
 SELECT *
 FROM dishes d
 WHERE d.id = @id;
+
+-- name: UpsertGoal :exec
+INSERT INTO user_goals (user_id, calories, proteins, fats, carbohydrates)
+VALUES (@user_id, @calories, @proteins, @fats, @carbohydrates)
+    ON CONFLICT(user_id) DO UPDATE SET
+    calories = EXCLUDED.calories,
+    proteins = EXCLUDED.proteins,
+    fats = EXCLUDED.fats,
+    carbohydrates = EXCLUDED.carbohydrates;
+
+-- name: GetGoal :one
+SELECT user_id, calories, proteins, fats, carbohydrates
+FROM user_goals
+WHERE user_id = @user_id;

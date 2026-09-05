@@ -87,3 +87,28 @@ func (s *Service) GetSpecificDayInfo(userID int64, date string) (dishes.DailyEat
 
 	return dailyInfo, nil
 }
+
+func (s *Service) SetGoal(userID int64, input string) (dishes.Goal, error) {
+	goal, ok := dishes.NewGoal(input)
+	if !ok {
+		return dishes.Goal{}, nil
+	}
+
+	err := s.repo.UpsertGoal(context.TODO(), userID, goal)
+	if err != nil {
+		log.Println(err)
+		return dishes.Goal{}, err
+	}
+
+	return goal, nil
+}
+
+func (s *Service) GetGoal(userID int64) (dishes.Goal, bool, error) {
+	goal, ok, err := s.repo.GetGoal(context.TODO(), userID)
+	if err != nil {
+		log.Println(err)
+		return dishes.Goal{}, false, err
+	}
+
+	return goal, ok, nil
+}

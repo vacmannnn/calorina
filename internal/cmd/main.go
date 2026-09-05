@@ -37,6 +37,7 @@ func main() {
 	tgBotAPI.Handle("/delete", bot.deleteDishes, logMessage)
 	tgBotAPI.Handle("/date", bot.checkDate, logMessage)
 	tgBotAPI.Handle("/add", bot.addToDate, logMessage)
+	tgBotAPI.Handle("/goal", bot.setGoal, logMessage)
 	tgBotAPI.Handle("/help", bot.helpMessage, logMessage)
 	tgBotAPI.Handle(tele.OnText, bot.handleText, logMessage)
 

@@ -114,6 +114,47 @@ type DailyEatingInfo struct {
 	Dishes []Dish
 }
 
+type Goal struct {
+	Calories      int64
+	Proteins      int64
+	Fats          int64
+	Carbohydrates int64
+}
+
+func NewGoal(text string) (Goal, bool) {
+	parts := strings.Fields(text)
+	if len(parts) != 5 {
+		return Goal{}, false
+	}
+
+	goal := Goal{
+		Calories:      parseFloatValueAsInt64(parts[1]),
+		Proteins:      parseFloatValueAsInt64(parts[2]),
+		Fats:          parseFloatValueAsInt64(parts[3]),
+		Carbohydrates: parseFloatValueAsInt64(parts[4]),
+	}
+	if goal.Calories <= 0 || goal.Proteins < 0 || goal.Fats < 0 || goal.Carbohydrates < 0 {
+		return Goal{}, false
+	}
+
+	return goal, true
+}
+
+func (g Goal) String() string {
+	return fmt.Sprintf("цель на день: %d ккал, %d белков, %d жиров, %d углеводов",
+		g.Calories, g.Proteins, g.Fats, g.Carbohydrates)
+}
+
+func (dei *DailyEatingInfo) RemainingString(goal Goal) string {
+	return fmt.Sprintf(
+		"остаток на сегодня: %d ккал, %d белков, %d жиров, %d углеводов",
+		goal.Calories-dei.TotalCalories,
+		goal.Proteins-dei.TotalProteins,
+		goal.Fats-dei.TotalFats,
+		goal.Carbohydrates-dei.TotalCarbohydrates,
+	)
+}
+
 func (dei *DailyEatingInfo) String() string {
 	pattern := `
 Блюда съедены: %s`

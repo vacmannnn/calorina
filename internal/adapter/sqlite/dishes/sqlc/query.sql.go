@@ -57,6 +57,25 @@ func (q *Queries) GetDishNameByID(ctx context.Context, id int64) (Dish, error) {
 	return i, err
 }
 
+const getGoal = `-- name: GetGoal :one
+SELECT user_id, calories, proteins, fats, carbohydrates
+FROM user_goals
+WHERE user_id = ?1
+`
+
+func (q *Queries) GetGoal(ctx context.Context, userID int64) (UserGoal, error) {
+	row := q.db.QueryRowContext(ctx, getGoal, userID)
+	var i UserGoal
+	err := row.Scan(
+		&i.UserID,
+		&i.Calories,
+		&i.Proteins,
+		&i.Fats,
+		&i.Carbohydrates,
+	)
+	return i, err
+}
+
 const upsertDailyInfo = `-- name: UpsertDailyInfo :exec
 INSERT INTO daily_eating_info (user_id, date, total_calories, total_proteins, total_fats, total_carbohydrates, dishes_ids)
 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
@@ -118,4 +137,33 @@ func (q *Queries) UpsertDishInfo(ctx context.Context, arg UpsertDishInfoParams) 
 	var id int64
 	err := row.Scan(&id)
 	return id, err
+}
+
+const upsertGoal = `-- name: UpsertGoal :exec
+INSERT INTO user_goals (user_id, calories, proteins, fats, carbohydrates)
+VALUES (?1, ?2, ?3, ?4, ?5)
+    ON CONFLICT(user_id) DO UPDATE SET
+    calories = EXCLUDED.calories,
+    proteins = EXCLUDED.proteins,
+    fats = EXCLUDED.fats,
+    carbohydrates = EXCLUDED.carbohydrates
+`
+
+type UpsertGoalParams struct {
+	UserID        int64
+	Calories      int64
+	Proteins      int64
+	Fats          int64
+	Carbohydrates int64
+}
+
+func (q *Queries) UpsertGoal(ctx context.Context, arg UpsertGoalParams) error {
+	_, err := q.db.ExecContext(ctx, upsertGoal,
+		arg.UserID,
+		arg.Calories,
+		arg.Proteins,
+		arg.Fats,
+		arg.Carbohydrates,
+	)
+	return err
 }
